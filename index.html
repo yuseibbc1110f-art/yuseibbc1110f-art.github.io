@@ -929,17 +929,24 @@ async function pushToGitHub(){
   const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
 
   try {
-    // Get current SHA of file (needed for update)
     const headers = {
       'Authorization': 'token ' + token,
       'Content-Type': 'application/json',
-      'Accept': 'application/vnd.github.v3+json'
+      'Accept': 'application/vnd.github.v3+json',
+      'Cache-Control': 'no-cache'
     };
+    // Always get fresh SHA from GitHub (never cache it)
     let sha = '';
-    const getRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`, { headers });
+    const getRes = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}?t=${Date.now()}`,
+      { headers, cache: 'no-store' }
+    );
     if(getRes.ok){
       const d = await getRes.json();
       sha = d.sha;
+    } else if(getRes.status !== 404){
+      const err = await getRes.json();
+      throw new Error('SHA取得失敗: ' + err.message);
     }
 
     // Push file
