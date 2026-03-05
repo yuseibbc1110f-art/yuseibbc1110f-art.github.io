@@ -1016,12 +1016,10 @@ init();
 
 <script>
 if('serviceWorker' in navigator){
-  // Unregister old service workers first to avoid stale cache
+  // Unregister ALL service workers to prevent stale cache issues
   navigator.serviceWorker.getRegistrations().then(regs => {
     regs.forEach(r => r.unregister());
-  });
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    console.log('All service workers unregistered:', regs.length);
   });
 }
 </script>
