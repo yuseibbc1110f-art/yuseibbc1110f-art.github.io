@@ -926,7 +926,13 @@ async function pushToGitHub(){
   if(status){ status.textContent = '⏳ 同期中...'; status.style.color = 'var(--mid)'; }
 
   const data = { questions: allQ, categories: cats, savedAt: new Date().toISOString() };
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+  // Safe Base64 encoding for Unicode/Japanese text
+  const jsonStr = JSON.stringify(data, null, 2);
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(jsonStr);
+  let binary = '';
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  const content = btoa(binary);
 
   try {
     const headers = {
