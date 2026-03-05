@@ -961,11 +961,9 @@ async function pushToGitHub(){
     );
     if(getRes.ok){
       const d = await getRes.json();
-      sha = d.sha;
-    } else if(getRes.status !== 404){
-      const err = await getRes.json();
-      throw new Error('SHA取得失敗: ' + err.message);
+      sha = d.sha || '';
     }
+    // 404 means file doesn't exist yet = first time, sha stays empty, that's OK
 
     // Push file
     const body = { message: 'sync data', content };
