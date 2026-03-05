@@ -570,17 +570,17 @@ function renderList(){
 }
 
 function makeQItem(q,origI,num,cat){
-  const h=hist[q.title], dot=h===true?'🟢':h===false?'🔴':'⚪';
+  const h=hist[q.title];
+  const dot=h===true?'🟢':h===false?'🔴':'⚪';
   const d=document.createElement('div'); d.className='q-item';
   let catBadge='';
   if(cat){catBadge=`<span class="q-item-cat" style="background:${hexToRgba(cat.color,.12)};color:${cat.color}">${cat.name}</span>`;}
-  const dot = h===true?'🟢':h===false?'🔴':'⚪';
   d.innerHTML=`
     <div class="q-item-num">${dot}</div>
     <div class="q-item-title">${q.title}${catBadge}</div>
     <button class="q-item-del" onclick="event.stopPropagation();delQ(${origI})" title="削除">×</button>
   `;
-  d.onclick = () => openEdit(${origI});
+  d.onclick = () => openEdit(origI);
   return d;
 }
 
