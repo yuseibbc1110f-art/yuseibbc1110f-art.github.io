@@ -199,6 +199,7 @@ body{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;backgroun
 <body>
 
 <!-- ═══ HOME ═══ -->
+<div id="saveInd" style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#2d6a4f;color:#fff;padding:8px 18px;border-radius:99px;font-size:13px;font-weight:700;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;">💾 保存しました</div>
 <div class="screen active" id="homeScreen">
   <div class="home-header">
     <div class="home-label">📚 暗記アプリ</div>
@@ -261,23 +262,34 @@ body{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;backgroun
   <!-- EXPORT TAB -->
   <div class="tab-panel" id="tabExport">
     <div class="add-form">
-      <p style="font-size:13px;color:var(--mid);line-height:1.8;margin-bottom:4px;">問題データとカテゴリを外部に書き出したり、読み込んだりできます。<br>バックアップや別端末への移行に使えます。</p>
+
+      <!-- GitHub Sync -->
+      <div class="sec-title">☁️ GitHub 自動同期</div>
+      <p style="font-size:12px;color:var(--mid);line-height:1.7;margin-bottom:8px;">トークンを設定すると問題・カテゴリの変更が自動でGitHubに保存されます。</p>
+      <div class="form-group">
+        <label class="form-label">GitHub Token</label>
+        <input class="form-input" id="ghToken" type="password" placeholder="ghp_xxxxxxxxxx" autocomplete="off">
+      </div>
+      <div id="ghStatus" style="font-size:12px;color:var(--light);min-height:18px;"></div>
+      <button class="btn-add" style="background:var(--accent)" onclick="saveGhToken()">🔑 トークンを保存して同期を有効化</button>
+      <div id="syncBtn" style="display:none">
+        <button class="btn-add" style="background:#1d6fa4;margin-top:4px" onclick="pushToGitHub()">⬆️ 今すぐ同期する</button>
+        <button class="btn-add" style="background:var(--red);margin-top:4px" onclick="clearGhToken()">🔓 トークンを削除</button>
+      </div>
+
       <hr class="divider">
       <div class="sec-title">エクスポート</div>
-      <button class="btn-add" style="background:var(--accent)" onclick="exportCSV()">📄 CSV でエクスポート（Excel対応）</button>
-      <button class="btn-add" style="background:#1d6fa4;margin-top:-4px" onclick="exportJSON()">💾 JSON でエクスポート（完全バックアップ）</button>
+      <button class="btn-add" style="background:#555" onclick="exportCSV()">📄 CSV でエクスポート</button>
+      <button class="btn-add" style="background:#555;margin-top:4px" onclick="exportJSON()">💾 JSON でエクスポート</button>
       <hr class="divider">
       <div class="sec-title">インポート</div>
-      <p style="font-size:12px;color:var(--light);margin-bottom:8px;">CSVフォーマット: タイトル,問題文,答え,カテゴリ名（1行目はヘッダー）</p>
       <label style="display:flex;flex-direction:column;gap:6px;">
         <span class="form-label">CSVファイルを選択</span>
         <input type="file" id="importFileCSV" accept=".csv" style="font-size:13px;padding:8px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);">
       </label>
       <button class="btn-add" style="background:#7c3aed" onclick="importCSV()">📥 CSV をインポート</button>
       <hr class="divider">
-      <div class="sec-title">ローカルデータ</div>
-      <p style="font-size:12px;color:var(--light);margin-bottom:8px;">問題・カテゴリ・学習履歴はこのブラウザに自動保存されています。</p>
-      <button class="btn-add" style="background:var(--red);margin-top:0" onclick="clearStorage()">🗑 保存データをすべてリセット</button>
+      <button class="btn-add" style="background:var(--red)" onclick="clearStorage()">🗑 ローカルデータをリセット</button>
     </div>
   </div>
 
@@ -449,8 +461,15 @@ function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.sli
 
 // ── INIT ──
 function init(){
+  loadFromStorage();
   updStats(); renderCatFilter(); renderList(); renderCatList(); syncCatSelects();
   document.getElementById('allN').textContent=allQ.length;
+  updateGhUI();
+  if(getGhToken()){
+    loadFromGitHub().then(ok => {
+      if(ok){ updStats(); renderCatFilter(); renderList(); renderCatList(); syncCatSelects(); }
+    });
+  }
 }
 
 function updStats(){
@@ -738,19 +757,17 @@ const LS_HIST = 'ankiHist_v1';
 
 function saveToStorage(){
   try{
-    const qStr = JSON.stringify(allQ);
-    const cStr = JSON.stringify(cats);
-    const hStr = JSON.stringify(hist);
-    localStorage.setItem(LS_Q,   qStr);
-    localStorage.setItem(LS_CAT, cStr);
-    localStorage.setItem(LS_HIST,hStr);
-    // verify save worked
-    const verify = localStorage.getItem(LS_Q);
-    if(!verify) throw new Error('verify failed');
+    localStorage.setItem(LS_Q,   JSON.stringify(allQ));
+    localStorage.setItem(LS_CAT, JSON.stringify(cats));
+    localStorage.setItem(LS_HIST,JSON.stringify(hist));
+    // show save indicator
+    const ind = document.getElementById('saveInd');
+    if(ind){ ind.textContent='💾 保存しました'; ind.style.opacity='1'; setTimeout(()=>ind.style.opacity='0',1500); }
   } catch(e){
     console.error('localStorage save failed:', e);
-    alert('保存に失敗しました: ' + e.message);
+    alert('保存エラー: ' + e.message);
   }
+  schedulePush();
 }
 
 function loadFromStorage(){
@@ -857,11 +874,123 @@ function parseCSVLine(line){
 }
 
 
+// ══ GITHUB SYNC ══
+const GH_OWNER = 'yuseibbc1110f-art';
+const GH_REPO  = '-';
+const GH_FILE  = 'data.json';
+const GH_TOKEN_KEY = 'ghToken_v1';
+
+function getGhToken(){ return localStorage.getItem(GH_TOKEN_KEY)||''; }
+
+function saveGhToken(){
+  const t = document.getElementById('ghToken').value.trim();
+  if(!t){ alert('トークンを入力してください'); return; }
+  localStorage.setItem(GH_TOKEN_KEY, t);
+  document.getElementById('ghToken').value = '';
+  updateGhUI();
+  pushToGitHub();
+}
+
+function clearGhToken(){
+  if(!confirm('GitHub連携を解除しますか？'))return;
+  localStorage.removeItem(GH_TOKEN_KEY);
+  updateGhUI();
+}
+
+function updateGhUI(){
+  const t = getGhToken();
+  const status = document.getElementById('ghStatus');
+  const syncBtn = document.getElementById('syncBtn');
+  if(t){
+    status.textContent = '✅ トークン設定済み・自動同期オン';
+    status.style.color = 'var(--green)';
+    if(syncBtn) syncBtn.style.display = 'block';
+  } else {
+    status.textContent = '⚪ 未設定（ローカルのみ保存）';
+    status.style.color = 'var(--light)';
+    if(syncBtn) syncBtn.style.display = 'none';
+  }
+}
+
+let ghSyncTimer = null;
+function schedulePush(){
+  if(!getGhToken()) return;
+  clearTimeout(ghSyncTimer);
+  ghSyncTimer = setTimeout(pushToGitHub, 2000);
+}
+
+async function pushToGitHub(){
+  const token = getGhToken();
+  if(!token) return;
+  const status = document.getElementById('ghStatus');
+  if(status){ status.textContent = '⏳ 同期中...'; status.style.color = 'var(--mid)'; }
+
+  const data = { questions: allQ, categories: cats, savedAt: new Date().toISOString() };
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+
+  try {
+    // Get current SHA of file (needed for update)
+    const headers = {
+      'Authorization': 'token ' + token,
+      'Content-Type': 'application/json',
+      'Accept': 'application/vnd.github.v3+json'
+    };
+    let sha = '';
+    const getRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`, { headers });
+    if(getRes.ok){
+      const d = await getRes.json();
+      sha = d.sha;
+    }
+
+    // Push file
+    const body = { message: 'sync data', content };
+    if(sha) body.sha = sha;
+    const putRes = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`, {
+      method: 'PUT', headers, body: JSON.stringify(body)
+    });
+
+    if(putRes.ok){
+      if(status){ status.textContent = '✅ 同期完了 ' + new Date().toLocaleTimeString('ja-JP'); status.style.color = 'var(--green)'; }
+    } else {
+      const err = await putRes.json();
+      throw new Error(err.message);
+    }
+  } catch(e){
+    console.error('GitHub sync error:', e);
+    if(status){ status.textContent = '❌ 同期失敗: ' + e.message; status.style.color = 'var(--red)'; }
+  }
+}
+
+async function loadFromGitHub(){
+  const token = getGhToken();
+  if(!token) return false;
+  try {
+    const headers = { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' };
+    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`, { headers });
+    if(!res.ok) return false;
+    const d = await res.json();
+    const text = decodeURIComponent(escape(atob(d.content)));
+    const data = JSON.parse(text);
+    if(data.questions) allQ = data.questions;
+    if(data.categories) cats = data.categories;
+    console.log('Loaded from GitHub:', allQ.length, 'questions');
+    return true;
+  } catch(e){
+    console.warn('GitHub load failed:', e);
+    return false;
+  }
+}
+
+
 init();
 </script>
 
 <script>
 if('serviceWorker' in navigator){
+  // Unregister old service workers first to avoid stale cache
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(()=>{});
   });
