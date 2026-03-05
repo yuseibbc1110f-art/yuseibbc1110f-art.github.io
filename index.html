@@ -738,10 +738,19 @@ const LS_HIST = 'ankiHist_v1';
 
 function saveToStorage(){
   try{
-    localStorage.setItem(LS_Q,   JSON.stringify(allQ));
-    localStorage.setItem(LS_CAT, JSON.stringify(cats));
-    localStorage.setItem(LS_HIST,JSON.stringify(hist));
-  } catch(e){ console.warn('localStorage save failed', e); }
+    const qStr = JSON.stringify(allQ);
+    const cStr = JSON.stringify(cats);
+    const hStr = JSON.stringify(hist);
+    localStorage.setItem(LS_Q,   qStr);
+    localStorage.setItem(LS_CAT, cStr);
+    localStorage.setItem(LS_HIST,hStr);
+    // verify save worked
+    const verify = localStorage.getItem(LS_Q);
+    if(!verify) throw new Error('verify failed');
+  } catch(e){
+    console.error('localStorage save failed:', e);
+    alert('保存に失敗しました: ' + e.message);
+  }
 }
 
 function loadFromStorage(){
@@ -749,10 +758,13 @@ function loadFromStorage(){
     const q = localStorage.getItem(LS_Q);
     const c = localStorage.getItem(LS_CAT);
     const h = localStorage.getItem(LS_HIST);
+    console.log('load - questions:', q ? JSON.parse(q).length : 'none');
     if(q) allQ = JSON.parse(q);
     if(c) cats = JSON.parse(c);
     if(h) hist = JSON.parse(h);
-  } catch(e){ console.warn('localStorage load failed', e); }
+  } catch(e){
+    console.error('localStorage load failed:', e);
+  }
 }
 
 function clearStorage(){
