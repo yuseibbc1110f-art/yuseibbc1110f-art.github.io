@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>localStorage テスト</title>
+<style>
+body{font-family:sans-serif;padding:30px;max-width:400px;margin:0 auto;}
+button{padding:12px 20px;font-size:16px;margin:8px 0;width:100%;border-radius:8px;border:none;background:#2d6a4f;color:#fff;cursor:pointer;}
+#result{margin-top:20px;padding:16px;border-radius:8px;background:#f0f0f0;font-size:14px;line-height:1.8;white-space:pre-wrap;}
+</style>
+</head>
+<body>
+<h2>localStorage テスト</h2>
+<button onclick="testSave()">1. 保存する</button>
+<button onclick="testLoad()">2. 読み込む</button>
+<button onclick="testClear()">3. 削除する</button>
+<div id="result">ボタンを押してテストしてください</div>
+<script>
+function testSave(){
+  try{
+    localStorage.setItem('lsTest', JSON.stringify({value:'テスト成功', time: new Date().toLocaleTimeString()}));
+    document.getElementById('result').textContent = '✅ 保存成功！\n' + localStorage.getItem('lsTest');
+  } catch(e){
+    document.getElementById('result').textContent = '❌ 保存失敗: ' + e.message;
+  }
+}
+function testLoad(){
+  try{
+    const v = localStorage.getItem('lsTest');
+    if(v){ document.getElementById('result').textContent = '✅ 読み込み成功！\n' + v; }
+    else { document.getElementById('result').textContent = '⚠️ データなし（先に保存してください）'; }
+  } catch(e){
+    document.getElementById('result').textContent = '❌ 読み込み失敗: ' + e.message;
+  }
+}
+function testClear(){
+  localStorage.removeItem('lsTest');
+  document.getElementById('result').textContent = '🗑 削除しました';
+}
+</script>
+</body>
+</html>
