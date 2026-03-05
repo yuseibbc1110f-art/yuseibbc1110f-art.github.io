@@ -121,6 +121,7 @@ body{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;backgroun
 .card{min-height:260px;position:relative;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.22,.8,.22,1);cursor:pointer;}
 .card.flipped{transform:rotateY(180deg);}
 .card-face{position:absolute;width:100%;min-height:260px;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:16px;padding:44px 22px 44px;display:flex;flex-direction:column;}
+.card-back{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 /* Question: warm off-white with green accent border */
 .card-front{background:#fffef9;border:2px solid #c8e6d5;}
 /* Answer: white with stronger green border */
@@ -132,7 +133,7 @@ body{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;backgroun
 .card-no{position:absolute;top:13px;right:17px;font-size:12px;color:var(--light);}
 .card-qlabel{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--mid);margin-bottom:8px;}
 .card-qtext{font-size:clamp(14px,3.2vw,17px);font-weight:700;line-height:1.75;color:var(--txt);white-space:pre-wrap;word-break:break-all;}
-.card-atext{font-size:clamp(12px,2.6vw,14px);line-height:1.9;color:var(--txt);white-space:pre-wrap;word-break:break-all;overflow-y:auto;max-height:340px;}
+.card-atext{font-size:clamp(12px,2.6vw,14px);line-height:1.9;color:var(--txt);white-space:pre-wrap;word-break:break-all;overflow-y:auto;max-height:160px;}
 .card-atext::-webkit-scrollbar{width:3px;}
 .card-atext::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
 .tap-hint{position:absolute;bottom:12px;left:0;width:100%;text-align:center;font-size:11px;color:var(--light);}
