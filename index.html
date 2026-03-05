@@ -194,6 +194,8 @@ body{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;backgroun
 .btn-save:hover{background:#245c43;}
 .btn-cancel{padding:12px 16px;background:var(--bg);color:var(--mid);border:1.5px solid var(--border);border-radius:10px;font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;font-size:14px;cursor:pointer;transition:all .18s;}
 .btn-cancel:hover{border-color:var(--mid);}
+.hist-tab{flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;}
+.hist-tab.active{border-color:var(--accent);background:var(--green-bg);color:var(--accent);}
 </style>
 </head>
 <body>
@@ -220,6 +222,18 @@ body{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;backgroun
     <button class="mode-btn" onclick="selMode(this,20)"><div class="mode-count">20</div><div class="mode-label">問 ランダム</div></button>
     <button class="mode-btn" onclick="selMode(this,-2)"><div class="mode-count">✗</div><div class="mode-label">不正解のみ</div></button>
     <button class="mode-btn mode-all" onclick="selMode(this,-1)"><div><div class="mode-count" id="allN">0</div><div class="mode-label">問 全問出題</div></div></button>
+    <button class="mode-btn" onclick="selMode(this,-3)"><div class="mode-count">🏷</div><div class="mode-label">カテゴリ選択</div></button>
+    <button class="mode-btn" onclick="selMode(this,-4)"><div class="mode-count">☑</div><div class="mode-label">手動選択</div></button>
+  </div>
+  <!-- カテゴリ選択パネル -->
+  <div id="catSelectPanel" style="display:none;margin-bottom:10px;">
+    <div class="sec-title" style="margin-bottom:6px;">カテゴリを選択</div>
+    <div id="catCheckList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+  </div>
+  <!-- 手動選択パネル -->
+  <div id="manualSelectPanel" style="display:none;margin-bottom:10px;">
+    <div class="sec-title" style="margin-bottom:6px;">問題を選択</div>
+    <div id="manualCheckList" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;"></div>
   </div>
   <button class="btn-start" onclick="startQuiz()">▶ スタート</button>
 
@@ -368,6 +382,15 @@ body{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;backgroun
     <div class="modal-header">
       <div class="modal-title">問題を編集</div>
       <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <!-- 習得状態タブ -->
+    <div class="form-group">
+      <label class="form-label">習得状態</label>
+      <div style="display:flex;gap:6px;margin-top:4px;">
+        <button id="hBtn0" class="hist-tab" onclick="setHistTab(null)">⚪ 未学習</button>
+        <button id="hBtn1" class="hist-tab" onclick="setHistTab(true)">🟢 習得済み</button>
+        <button id="hBtn2" class="hist-tab" onclick="setHistTab(false)">🔴 要復習</button>
+      </div>
     </div>
     <div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="eT" autocomplete="off" autocorrect="off" spellcheck="false"></div>
     <div class="form-group"><label class="form-label">問題文</label><textarea class="form-textarea" id="eQ" autocomplete="off" autocorrect="off" spellcheck="false"></textarea></div>
@@ -551,16 +574,13 @@ function makeQItem(q,origI,num,cat){
   const d=document.createElement('div'); d.className='q-item';
   let catBadge='';
   if(cat){catBadge=`<span class="q-item-cat" style="background:${hexToRgba(cat.color,.12)};color:${cat.color}">${cat.name}</span>`;}
-  const histBtn = h===true ? `<button class="q-item-edit" onclick="event.stopPropagation();toggleHist('${q.title}')" title="習得済みを解除">🟢</button>`
-    : h===false ? `<button class="q-item-edit" onclick="event.stopPropagation();toggleHist('${q.title}')" title="要復習を解除">🔴</button>`
-    : `<button class="q-item-edit" onclick="event.stopPropagation();toggleHist('${q.title}')" title="習得済みにする" style="opacity:0.4">⚪</button>`;
+  const dot = h===true?'🟢':h===false?'🔴':'⚪';
   d.innerHTML=`
-    <div class="q-item-num">${num}</div>
+    <div class="q-item-num">${dot}</div>
     <div class="q-item-title">${q.title}${catBadge}</div>
-    ${histBtn}
-    <button class="q-item-edit" onclick="event.stopPropagation();openEdit(${origI})" title="編集">✏️</button>
-    <button class="q-item-del"  onclick="event.stopPropagation();delQ(${origI})"   title="削除">×</button>
+    <button class="q-item-del" onclick="event.stopPropagation();delQ(${origI})" title="削除">×</button>
   `;
+  d.onclick = () => openEdit(${origI});
   return d;
 }
 
@@ -610,9 +630,21 @@ function delCat(id){
 }
 
 // ── EDIT MODAL ──
+let editHistVal = null;
+
+function setHistTab(val){
+  editHistVal = val;
+  document.getElementById('hBtn0').classList.toggle('active', val===null);
+  document.getElementById('hBtn1').classList.toggle('active', val===true);
+  document.getElementById('hBtn2').classList.toggle('active', val===false);
+}
+
 function openEdit(i){
   editIdx=i;
   const q=allQ[i];
+  // 習得状態の初期化
+  const h = hist[q.title];
+  setHistTab(h===true ? true : h===false ? false : null);
   // sync categories first so select has all options
   syncCatSelects();
   document.getElementById('eT').value = q.title || '';
@@ -623,7 +655,6 @@ function openEdit(i){
   overlay.classList.add('open');
   const modal = overlay.querySelector('.modal');
   if(modal) modal.scrollTop = 0;
-  // iOS: slight delay before focus
   setTimeout(() => { try{ document.getElementById('eT').focus(); }catch(e){} }, 150);
 }
 
@@ -638,6 +669,11 @@ function saveEdit(){
   const a=document.getElementById('eA').value.trim();
   const cat=document.getElementById('eCat').value;
   if(!t||!q||!a){alert('タイトル・問題文・答えをすべて入力してください');return;}
+  const oldTitle = allQ[editIdx].title;
+  // 習得状態の保存
+  if(oldTitle !== t){ delete hist[oldTitle]; }
+  if(editHistVal===null){ delete hist[t]; }
+  else { hist[t] = editHistVal; }
   allQ[editIdx]={title:t,q,a,cat};
   closeModal(); saveToStorage(); updStats(); renderCatList(); renderCatFilter(); renderList();
 }
@@ -665,16 +701,80 @@ function delQ(i){
 function selMode(btn,n){
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('selected'));
   btn.classList.add('selected'); mode=n;
+  // show/hide panels
+  document.getElementById('catSelectPanel').style.display = n===-3 ? 'block' : 'none';
+  document.getElementById('manualSelectPanel').style.display = n===-4 ? 'block' : 'none';
+  if(n===-3) renderCatCheckList();
+  if(n===-4) renderManualCheckList();
+}
+
+function renderCatCheckList(){
+  const wrap = document.getElementById('catCheckList');
+  wrap.innerHTML = '';
+  cats.forEach(c => {
+    const cnt = allQ.filter(q=>q.cat===c.id).length;
+    const btn = document.createElement('button');
+    btn.style.cssText = `padding:6px 12px;border-radius:99px;border:2px solid ${c.color};background:transparent;color:${c.color};font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;`;
+    btn.textContent = c.name + ' ' + cnt + '問';
+    btn.dataset.catId = c.id;
+    btn.onclick = function(){
+      this.classList.toggle('cat-checked');
+      if(this.classList.contains('cat-checked')){
+        this.style.background = c.color; this.style.color = '#fff';
+      } else {
+        this.style.background = 'transparent'; this.style.color = c.color;
+      }
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+function renderManualCheckList(){
+  const wrap = document.getElementById('manualCheckList');
+  wrap.innerHTML = '';
+  allQ.forEach((q,i) => {
+    const h = hist[q.title];
+    const dot = h===true?'🟢':h===false?'🔴':'⚪';
+    const cat = q.cat ? getCat(q.cat) : null;
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:var(--surface);border:1.5px solid var(--border);cursor:pointer;font-size:12px;';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.dataset.idx = i;
+    cb.style.width='16px';cb.style.height='16px';cb.style.cursor='pointer';
+    const span = document.createElement('span');
+    span.style.flex = '1';
+    span.textContent = dot + ' ' + q.title;
+    if(cat){ const tag = document.createElement('span'); tag.style.cssText=`margin-left:4px;font-size:10px;padding:1px 6px;border-radius:99px;background:${hexToRgba(cat.color,.12)};color:${cat.color};font-weight:700;`; tag.textContent=cat.name; span.appendChild(tag); }
+    label.appendChild(cb); label.appendChild(span);
+    wrap.appendChild(label);
+  });
 }
 
 // ── QUIZ ──
 function startQuiz(){
-  let pool;
-  if(mode===-1){pool=shuf([...allQ]);}
-  else if(mode===-2){const w=allQ.filter(q=>hist[q.title]===false);if(!w.length){alert('不正解の問題がありません！');return;}pool=shuf([...w]);}
-  else{pool=shuf([...allQ]).slice(0,Math.min(mode,allQ.length));}
+  let pool; let lbl;
+  if(mode===-1){
+    pool=shuf([...allQ]); lbl=`全${allQ.length}問`;
+  } else if(mode===-2){
+    const w=allQ.filter(q=>hist[q.title]===false);
+    if(!w.length){alert('不正解の問題がありません！');return;}
+    pool=shuf([...w]); lbl=`要復習 ${pool.length}問`;
+  } else if(mode===-3){
+    // カテゴリ選択
+    const checked = [...document.querySelectorAll('.cat-checked')].map(b=>b.dataset.catId);
+    if(!checked.length){alert('カテゴリを選択してください');return;}
+    pool=shuf(allQ.filter(q=>checked.includes(q.cat)));
+    if(!pool.length){alert('選択したカテゴリに問題がありません');return;}
+    lbl=`カテゴリ ${pool.length}問`;
+  } else if(mode===-4){
+    // 手動選択
+    const checked = [...document.querySelectorAll('#manualCheckList input[type=checkbox]:checked')].map(cb=>allQ[parseInt(cb.dataset.idx)]);
+    if(!checked.length){alert('問題を選択してください');return;}
+    pool=shuf([...checked]); lbl=`手動選択 ${pool.length}問`;
+  } else {
+    pool=shuf([...allQ]).slice(0,Math.min(mode,allQ.length)); lbl=`ランダム${mode}問`;
+  }
   sesQ=pool; sesR=new Array(pool.length).fill(null); cur=0; flipped=false;
-  const lbl=mode===-1?`全${allQ.length}問`:mode===-2?`要復習 ${pool.length}問`:`ランダム${mode}問`;
   document.getElementById('qMode').textContent=lbl;
   show('quizScreen'); renderCard();
 }
